@@ -19,7 +19,7 @@ namespace TGProxyDemo.Helpers
             if (elapsed.TotalHours >= 1)
                 return $"{(int)elapsed.TotalHours}h";
             if (elapsed.TotalMinutes >= 1)
-                return $"{(int)elapsed.TotalMinutes}min{((elapsed.TotalMilliseconds >= 2) ? "s" : string.Empty)}";
+                return $"{(int)elapsed.TotalMinutes}min{((elapsed.TotalMinutes >= 2) ? "s" : string.Empty)}";
 
             return $"{(int)elapsed.TotalSeconds}s";
         }
