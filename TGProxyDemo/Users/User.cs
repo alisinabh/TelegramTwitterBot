@@ -27,6 +27,6 @@ namespace TGProxyDemo.Users
     {
         Na=0,
         InReply=1,
-        InRetweet=2,
+        InQRetweet=2,
     }
 }

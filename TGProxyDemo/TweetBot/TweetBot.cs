@@ -15,6 +15,8 @@ using User = TGProxyDemo.Users.User;
 
 namespace TGProxyDemo.TweetBot
 {
+    using Users;
+
     public class TweetBot
     {
         public readonly TelegramBotClient Bot;// = new TelegramBotClient("213125170:AAGTgyQ3NLOs_2O6nacchnEVkDTaXinO65E");
@@ -154,7 +156,7 @@ namespace TGProxyDemo.TweetBot
                         var trends = await user.TwService.ListLocalTrendsForAsync(new ListLocalTrendsForOptions());
                         if (trends == null)
                         {
-                            await Bot.SendTextMessageAsync(user.ChatId, "No trends found!");
+                            await Bot.SendTextMessageAsync(user.ChatId, "No trends found!", disableNotification: true);
                             return;
                         }
 
@@ -164,7 +166,7 @@ namespace TGProxyDemo.TweetBot
                             trndStr.Append($"#{twitterTrend.Name}");
                         }
 
-                        await Bot.SendTextMessageAsync(user.ChatId, trndStr.ToString());
+                        await Bot.SendTextMessageAsync(user.ChatId, trndStr.ToString(), disableNotification: true);
                         break;
                     case "/timeline":
                     {
@@ -177,13 +179,13 @@ namespace TGProxyDemo.TweetBot
                                 ContributorDetails = true,
                                 Count = 10,
                                 ExcludeReplies = false,
-                                IncludeEntities = false,
+                                IncludeEntities = true,
                                 MaxId = maxId,
                                 SinceId = null,
                                 TrimUser = null
                             });
 
-                        if (timeLineItems != null)
+                        if (timeLineItems != null && timeLineItems.Value.Any())
                         {
                             var statuses = maxId.HasValue
                                 ? timeLineItems.Value.Skip(1).Take(10).ToArray()
@@ -220,7 +222,7 @@ namespace TGProxyDemo.TweetBot
                         }
                         else
                         {
-                            await Bot.SendTextMessageAsync(user.ChatId, "No feed in timeline");
+                            await Bot.SendTextMessageAsync(user.ChatId, "No feed in your timeline");
                         }
                     }
                         break;
@@ -235,17 +237,99 @@ namespace TGProxyDemo.TweetBot
                     }
                         break;
                     case "/like":
+                        {
+                            var tweetId = long.Parse(message.Substring(cmd.Length + 1));
+                            var tweet = await user.TwService.FavoriteTweetAsync(new FavoriteTweetOptions()
+                            {
+                                Id = tweetId
+                            });
+
+                            //var tweet = await user.TwService.GetTweetAsync(new GetTweetOptions() { Id = tweetId });
+
+                            if (messageId != null)
+                                await SendSingleTweet(tweet.Value, user, editMsgId: (int)messageId.Value);
+                        }
+                        break;
+                    case "/dislike":
+                        {
+                            var tweetId = long.Parse(message.Substring(cmd.Length + 1));
+                            var tweet = await user.TwService.UnfavoriteTweetAsync(new UnfavoriteTweetOptions() {Id=tweetId});
+
+                            //var tweet = await user.TwService.GetTweetAsync(new GetTweetOptions() { Id = tweetId });
+
+                            if (messageId != null)
+                                await SendSingleTweet(tweet.Value, user, editMsgId: (int)messageId.Value);
+                        }
+                        break;
+                    case "/ret":
                     {
                         var tweetId = long.Parse(message.Substring(cmd.Length + 1));
-                        var rt = await user.TwService.FavoriteTweetAsync(new FavoriteTweetOptions()
-                        {
-                            Id = tweetId
-                        });
-
-                        var tweet = await user.TwService.GetTweetAsync(new GetTweetOptions() {Id = tweetId});
-
+                        var tweet = await user.TwService.GetTweetAsync(new GetTweetOptions() { Id = tweetId });
                         if (messageId != null)
-                            await SendSingleTweet(tweet.Value, user, editMsgId: (int) messageId.Value);
+                            await
+                                SendSingleTweet(tweet.Value, user, editMsgId: (int) messageId,
+                                    additionalButtons: new[]
+                                    {
+                                        new InlineKeyboardButton("Retweet",$"/retweet {tweetId}"),
+                                        new InlineKeyboardButton("Quote Retweet",$"/qretweet {tweetId} {tweet.Value.Author.ScreenName}"),
+                                    });
+
+                        
+                    }
+                        break;
+                    case "/retweet":
+                        {
+                            var tweetId = long.Parse(message.Substring(cmd.Length + 1));
+                            var tweet = await user.TwService.RetweetAsync(new RetweetOptions() { Id = tweetId });
+
+                            await SendTweetToUser(tweet.Value, user);
+
+                            tweet = await user.TwService.GetTweetAsync(new GetTweetOptions() { Id = tweetId });
+
+                            if (messageId != null) await SendSingleTweet(tweet.Value, user, editMsgId: (int)messageId);
+                        }
+                        break;
+                    case "/qretweet":
+                        {
+                            var props = message.Substring(cmd.Length + 1).Split(' ');
+                            var tweetId = long.Parse(props[0]);
+                            //var tweet = await user.TwService.GetTweetAsync(new GetTweetOptions() { Id = tweetId });
+
+                            user.Status = UserStatus.InQRetweet;
+                            user.StatusProperty = props;
+
+                            await Bot.SendTextMessageAsync(user.ChatId, "Please enter your tweet text and send\r\nto cancel qoute retweet enter /flush");
+                        }
+                        break;
+                    case "/reply":
+                        {
+                            var props = message.Substring(cmd.Length + 1);
+                            var tweetId = long.Parse(props);
+                            var tweet = await user.TwService.GetTweetAsync(new GetTweetOptions() { Id = tweetId });
+
+                            user.Status = UserStatus.InReply;
+                            user.StatusProperty = long.Parse(props);
+
+                            await Bot.SendTextMessageAsync(user.ChatId, $"Please enter your tweet text to reply to /u_{tweet.Value.Author.ScreenName} and send\r\nto cancel reply enter /flush");
+                        }
+                        break;
+                    case "/flush":
+                    {
+                        if (user.Status != UserStatus.Na)
+                        {
+                            user.Status = UserStatus.Na;
+                            user.StatusProperty = null;
+
+                            await
+                                Bot.SendTextMessageAsync(user.ChatId,
+                                    "Action Cancelled!");
+                        }
+                        else
+                        {
+                            await
+                                Bot.SendTextMessageAsync(user.ChatId,
+                                    "No action to cancel!");
+                        }
                     }
                         break;
                     default:
@@ -271,8 +355,7 @@ namespace TGProxyDemo.TweetBot
                                 },
                                 new[] // second row
                                 {
-                                    new InlineKeyboardButton("Last 10 🕊", callbackData: $"/ut_{screenName}")
-                                    // left
+                                    new InlineKeyboardButton($"Tweets from @{screenName}", callbackData: $"/ut_{screenName}")
                                 }
                             });
 
@@ -283,7 +366,7 @@ namespace TGProxyDemo.TweetBot
                                     replyMarkup: keyboard);
                         }
                         else if (cmd.StartsWith("/ut_"))
-                        {
+                        { //User post view
                             var screenName = cmd.Substring(4);
                             long? maxId = null;
                             if (message.Length > cmd.Length + 2)
@@ -323,6 +406,38 @@ namespace TGProxyDemo.TweetBot
                                 }
                             }
                         }
+                        else
+                        {
+                            switch (user.Status)
+                            {
+                                case UserStatus.Na:
+                                    break;
+                                case UserStatus.InReply:
+                                {
+                                    var statusProps = (long)user.StatusProperty;
+                                    var usersNewStatus = await user.TwService.SendTweetAsync(new SendTweetOptions()
+                                    {
+                                        Status = message,
+                                        InReplyToStatusId = statusProps,
+                                    });
+
+                                    await SendTweetToUser(usersNewStatus.Value, user);
+                                    break;
+                                }
+                                case UserStatus.InQRetweet:
+                                {
+                                    var statusProps = (string[]) user.StatusProperty;
+                                    var usersNewStatus = await user.TwService.SendTweetAsync(new SendTweetOptions()
+                                    {
+                                        Status =
+                                            $"{message} https://twitter.com/{statusProps[1]}/status/{statusProps[0]}"
+                                    });
+
+                                    await SendSingleTweet(usersNewStatus.Value, user);
+                                }
+                                    break;
+                            }
+                        }
                     }
                         break;
                 }
@@ -346,7 +461,7 @@ namespace TGProxyDemo.TweetBot
                         replMsgId: replMessage?.MessageId, additionalButtons: additionalButtons);
         }
 
-        private async Task<Message> SendSingleTweet(TwitterStatus twitterStatus, User user,int? replMsgId=null,int? editMsgId=null, InlineKeyboardButton[] additionalButtons = null)
+        private async Task<Message> SendSingleTweet(TwitterStatus twitterStatus, User user,int? replMsgId=null,int? editMsgId=null, InlineKeyboardButton[] additionalButtons = null, bool notifyUser=false)
         {
             var keyboardData = new List<InlineKeyboardButton[]>()
             {
@@ -357,8 +472,8 @@ namespace TGProxyDemo.TweetBot
                         "♻️" + ((twitterStatus.RetweetCount > 0) ? $" {twitterStatus.RetweetCount}" : string.Empty),
                         callbackData: $"/ret {twitterStatus.Id}"), // center
                     (twitterStatus.IsFavorited)
-                        ? new InlineKeyboardButton("💔", callbackData: $"/dislike {twitterStatus.Id}")
-                        : new InlineKeyboardButton("❤️", callbackData: $"/like {twitterStatus.Id}"), // right
+                        ? new InlineKeyboardButton("💔" + ((twitterStatus.FavoriteCount > 0) ? $" {twitterStatus.FavoriteCount}":string.Empty) , callbackData: $"/dislike {twitterStatus.Id}")
+                        : new InlineKeyboardButton("❤️" + ((twitterStatus.FavoriteCount > 0) ? $" {twitterStatus.FavoriteCount}":string.Empty) , callbackData: $"/like {twitterStatus.Id}"), // right
                 }
             };
 
@@ -367,7 +482,7 @@ namespace TGProxyDemo.TweetBot
 
             var keyboard = new InlineKeyboardMarkup(keyboardData.ToArray());
 
-            string text = $"{twitterStatus.Text.Replace("@","/u_").Replace("/u_ ","@")}\r\n{Helpers.DateTimeHelpers.GetElapsedSmallTime(twitterStatus.CreatedDate)} /u_{twitterStatus.User.ScreenName} {twitterStatus.User.Name}";
+            string text = $"{twitterStatus.Text.Replace("@","/u_").Replace("/u_ ","@")}\r\n{Helpers.DateTimeHelpers.GetElapsedSmallTime(twitterStatus.CreatedDate.ToLocalTime())} /u_{twitterStatus.User.ScreenName} {twitterStatus.User.Name}";
 
             if (editMsgId.HasValue)
                 return await Bot.EditMessageTextAsync(user.ChatId, editMsgId.Value, text, replyMarkup: keyboard);
@@ -375,7 +490,7 @@ namespace TGProxyDemo.TweetBot
                 return await
                     Bot.SendTextMessageAsync(user.ChatId,
                         text, replyMarkup: keyboard,
-                        replyToMessageId: replMsgId ?? 0);
+                        replyToMessageId: replMsgId ?? 0, disableNotification: !notifyUser);
         }
 
         private static string GetCommandName(string messageText)
