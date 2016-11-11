@@ -68,6 +68,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TweetBot\TweetBot.cs" />
+    <Compile Include="Users\NotifySetting.cs" />
     <Compile Include="Users\User.cs" />
   </ItemGroup>
   <ItemGroup>

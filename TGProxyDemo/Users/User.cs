@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using System.Collections.Generic;
+using Newtonsoft.Json;
 using TweetSharp;
 
 namespace TGProxyDemo.Users
@@ -16,11 +17,13 @@ namespace TGProxyDemo.Users
 
         public bool IsVerified { get; set; }
 
-        public bool IsInProgress { get; set; }
+        public bool DisableNotify { get; set; }
 
         public UserStatus Status { get; set; }
 
         public dynamic StatusProperty { get; set; }
+
+        public List<NotifySetting> NotifySettings { get; set; }
     }
 
     public enum UserStatus
