@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Threading;
+using System.IO;
+
 
 namespace TGProxyDemo
 {
@@ -7,10 +9,38 @@ namespace TGProxyDemo
     {
         static void Main()
         {
-            var twBot = new TweetBot.TweetBot("213125170:AAGTgyQ3NLOs_2O6nacchnEVkDTaXinO65E", "DSAp0Zy4p8J8fbAzcyuFndhR2", "mcK4QMKRp4IRJghvf6utv7eOO9ER8emTI9EGayqFH5XgMyFedA", @"C:\Users\Alisina\Source\Repos\TGProxyDemo\TGProxyDemo\bin\Debug\users");
+            StartApp();
+        }
 
-            twBot.LoadBotUsers();
-            twBot.StartBot();
+        private const string ConfigFileName = "tweetbot.conf";
+        private static void StartApp()
+        {
+            try
+            {
+                if (!File.Exists(ConfigFileName))
+                    ThrowMisconfigException();
+
+                var config = File.ReadAllLines(ConfigFileName);
+
+                if(config.Length<3)
+                    ThrowMisconfigException();
+
+                var twBot = new TweetBot.TweetBot(config[0],
+                    config[1], config[2],
+                    config[3]);
+
+                twBot.LoadBotUsers();
+                twBot.StartBot();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Tweet Bot initiation failed! \r\n{ex.Message}");
+                Console.WriteLine();
+                Console.WriteLine("Press [Enter] to Retry...");
+                Console.ReadLine();
+                StartApp();
+                return;
+            }
 
             while (true)
             {
@@ -19,6 +49,11 @@ namespace TGProxyDemo
                     return;
             }
         }
- 
+
+        private static void ThrowMisconfigException()
+        {
+            throw new Exception($"tweetbot.conf not found!\r\nPlease provide a plain text config file named '{ConfigFileName}' in assembly startup directory with following format:\r\n"
+                                    + "First line: Telegram bot token\r\nSecond Line: twitter api key\r\nThird line: twitter api secret\r\nFourth line: directory of user data to store");
+        }
     }
 }
