@@ -1,5 +1,6 @@
 # TelegramTwitterBot
 This bot is a demonstration of work, it shows how social media can be used as proxies for other services, not all of it is good, currently all messengers that are using end to end encryptions can potentially be used as proxies or they even can be used as a method of relays in Tor network.
+[![Build Status](https://travis-ci.org/alisinabh/TelegramTwitterBot.svg?branch=IntroAndHelps)](https://travis-ci.org/alisinabh/TelegramTwitterBot)
 
 A messenger with end-to-end encryption support can be used as a layer 2 tunnel (encoding data in HEX or some kinda string serialization) and no government can block the consumer without blocking the whole messenger down in censored area.
 
