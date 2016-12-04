@@ -32,6 +32,10 @@ namespace TGProxyDemo.TweetBot
             _twitterApiSecret = twitterApiSecret;
             _bot = new TelegramBotClient(tgToken);
             _baseUsersPath = baseUsersPath;
+
+
+            if (!Directory.Exists(_baseUsersPath))
+                Directory.CreateDirectory(_baseUsersPath);
         }
 
         public Telegram.Bot.Types.User StartBot()
@@ -101,6 +105,33 @@ namespace TGProxyDemo.TweetBot
                         File.Create(Path.Combine(_baseUsersPath, $"{user.ChatId}.tw")).Close();
                         File.WriteAllText(Path.Combine(_baseUsersPath, $"{user.ChatId}.tw"),
                             JsonConvert.SerializeObject(user));
+
+
+                        var helpKeyboard = new ReplyKeyboardMarkup(new[]
+                        {
+                            new[] // first row
+                            {
+                                new KeyboardButton("/timeline"),
+                            },
+                            new[] // last row
+                            {
+                                new KeyboardButton("/search"),
+                            },
+                            new[] // last row
+                            {
+                                new KeyboardButton("/logout"),
+                            }
+                        });
+
+
+                        await
+                            _bot.SendTextMessageAsync(user.ChatId,
+                                $"hi @{user.AccessToken.ScreenName}\r\nWelcome to TweetBot! where you ca read your timeline, see users profiles, retweet, favorite, and of course tweet! 😋\r\n"
+                                + "You can start with exploring throw your /timeline \r\n"
+                                +
+                                "In tweet bot we replace '@' in users screen names with '/u_' so you can view a users profile by clicking on that link here.",
+                                replyMarkup: helpKeyboard);
+
 
                     }
 
