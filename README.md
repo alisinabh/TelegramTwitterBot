@@ -5,7 +5,7 @@ A messenger with end-to-end encryption support can be used as a layer 2 tunnel (
 
 however this project is only using official APIs of social networks just as a demonstration.
 
-##### Currently there is no official services wich run this bot for public. you can build and use it on your own server
+##### UPDATE: demo version of tweetbot is now accessible for try https://telegram.me/irtweetbot/ 
 
 ### TeleramTwitterBot is currently capable of:
 

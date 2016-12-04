@@ -5,7 +5,7 @@ using System.IO;
 
 namespace TGProxyDemo
 {
-    class Program
+    static class Program
     {
         static void Main()
         {
@@ -22,7 +22,7 @@ namespace TGProxyDemo
 
                 var config = File.ReadAllLines(ConfigFileName);
 
-                if(config.Length<3)
+                if (config.Length < 3)
                     ThrowMisconfigException();
 
                 var twBot = new TweetBot.TweetBot(config[0],
