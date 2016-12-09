@@ -112,6 +112,7 @@ namespace TGProxyDemo.TweetBot
                             new[] // first row
                             {
                                 new KeyboardButton("/timeline"),
+                                new KeyboardButton("/mentions"),
                             },
                             new[] // last row
                             {
@@ -184,6 +185,7 @@ namespace TGProxyDemo.TweetBot
                 switch (cmd)
                 {
                     case "/trends":
+                    {
                         var trends = await user.TwService.ListLocalTrendsForAsync(new ListLocalTrendsForOptions());
                         if (trends == null)
                         {
@@ -199,6 +201,39 @@ namespace TGProxyDemo.TweetBot
 
                         await _bot.SendTextMessageAsync(user.ChatId, trndStr.ToString(), disableNotification: true);
                         break;
+                    }
+                    case "/mentions":
+                    {
+                        long? maxId = null;
+                        if (message.Length > cmd.Length + 2)
+                            maxId = long.Parse(message.Substring(cmd.Length + 1));
+                        var mentions =
+                            await
+                                user.TwService.ListTweetsMentioningMeAsync(new ListTweetsMentioningMeOptions()
+                                {
+                                    Count = 5,
+                                    MaxId = maxId
+                                });
+                        if (mentions == null)
+                        {
+                            await
+                                _bot.SendTextMessageAsync(user.ChatId, "Sorry :(\r\nNo mentions found for you!",
+                                    disableNotification: true);
+                            return;
+                        }
+
+                        if (mentions.Value != null && mentions.Value.Any())
+                        {
+                            await
+                                SendStatusesDemandLoding(user, messageId, maxId, mentions.Value, demandCmd: "/mentions");
+                        }
+                        else
+                        {
+                            await _bot.SendTextMessageAsync(user.ChatId, "Sorry :(\r\nNo mentions found for you!");
+                        }
+
+                        break;
+                    }
                     case "/timeline":
                     {
                         long? maxId = null;
@@ -218,38 +253,8 @@ namespace TGProxyDemo.TweetBot
 
                         if (timeLineItems != null && timeLineItems.Value.Any())
                         {
-                            var statuses = maxId.HasValue
-                                ? timeLineItems.Value.Skip(1).Take(10).ToArray()
-                                : timeLineItems.Value.Take(10).ToArray();
-                            if (maxId.HasValue)
-                            {
-                                var timelineMoreTw =
-                                    await user.TwService.GetTweetAsync(new GetTweetOptions() {Id = maxId.Value});
-                                if (messageId != null)
-                                    await SendSingleTweet(timelineMoreTw.Value, user, editMsgId: (int) messageId);
-                            }
-                            foreach (var twitterStatus in statuses)
-                            {
-                                try
-                                {
-                                    await _bot.SendChatActionAsync(user.ChatId, ChatAction.Typing);
-                                    if (twitterStatus != statuses.Last())
-                                        await SendTweetToUser(twitterStatus, user);
-                                    else
-                                    {
-                                        var btns = new[]
-                                        {
-                                            new InlineKeyboardButton("Timeline more...", $"/timeline {twitterStatus.Id}"),
-                                        };
-
-                                        await SendTweetToUser(twitterStatus, user, btns);
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    Console.WriteLine(ex);
-                                }
-                            }
+                            await
+                                SendStatusesDemandLoding(user, messageId, maxId, timeLineItems.Value, demandCmd: "/timeline");
                         }
                         else
                         {
@@ -484,6 +489,47 @@ namespace TGProxyDemo.TweetBot
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
+            }
+        }
+
+        private async Task SendStatusesDemandLoding(User user, long? messageId, long? maxId, IEnumerable<TwitterStatus> twStatuses, string demandCmd=null)
+        {
+            var statuses = maxId.HasValue
+                                            ? twStatuses.Skip(1).Take(10).ToArray()
+                                            : twStatuses.Take(10).ToArray();
+            if (maxId.HasValue)
+            {
+                var timelineMoreTw =
+                    await user.TwService.GetTweetAsync(new GetTweetOptions() { Id = maxId.Value });
+                if (messageId != null)
+                    await SendSingleTweet(timelineMoreTw.Value, user, editMsgId: (int)messageId);
+            }
+            await SendStatuses(user, statuses, demandCmd);
+        }
+
+        private async Task SendStatuses(User user, TwitterStatus[] statuses, string demandCmd=null)
+        {
+            foreach (var twitterStatus in statuses)
+            {
+                try
+                {
+                    await _bot.SendChatActionAsync(user.ChatId, ChatAction.Typing);
+                    if (twitterStatus != statuses.Last() || demandCmd == null)
+                        await SendTweetToUser(twitterStatus, user);
+                    else
+                    {
+                        var btns = new[]
+                        {
+                            new InlineKeyboardButton("Timeline more...", $"{demandCmd} {twitterStatus.Id}"),
+                        };
+
+                        await SendTweetToUser(twitterStatus, user, btns);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
             }
         }
 
